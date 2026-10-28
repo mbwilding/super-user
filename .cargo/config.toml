@@ -8,6 +8,7 @@ rustflags = [
     "-Clink-arg=/SUBSYSTEM:WINDOWS",
     "-Clink-arg=/STUB:dos-stub.bin",
     "-Clink-arg=/IGNORE:4060",
+    "-Clink-arg=/DEBUG:NONE",
     "-Clink-arg=/MERGE:.rdata=.text",
     "-Clink-arg=/MERGE:.pdata=.text",
 ]
