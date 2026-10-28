@@ -158,5 +158,4 @@ unsafe extern "system" {
         dir: *const u16,
         show: i32,
     ) -> HANDLE;
-    pub fn CommandLineToArgvW(cmd_line: *const u16, argc: *mut i32) -> *mut *mut u16;
 }

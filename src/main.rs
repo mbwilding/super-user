@@ -22,17 +22,16 @@ fn panic(_: &core::panic::PanicInfo) -> ! {
 
 #[unsafe(no_mangle)]
 pub extern "C" fn mainCRTStartup() -> ! {
-    let mut arg = [0u16; 512];
-    let has_arg = first_arg(&mut arg);
+    let tail = cmd_tail();
 
     if !is_elevated() {
-        elevate(if has_arg { Some(&arg) } else { None });
+        elevate(tail);
         unsafe { ExitProcess(0) }
     }
 
     let mut cmd = [0u16; 512];
     let default = wstr!("cmd.exe /k whoami");
-    copy_wide(&mut cmd, if has_arg { trim_nul(&arg) } else { &default });
+    copy_wide(&mut cmd, if tail.is_empty() { &default } else { tail });
 
     run(&mut cmd);
     unsafe { ExitProcess(0) }
@@ -59,37 +58,18 @@ fn is_elevated() -> bool {
     }
 }
 
-fn elevate(arg: Option<&[u16]>) {
+fn elevate(params: &[u16]) {
     let mut exe = [0u16; 512];
     unsafe {
         GetModuleFileNameW(null_mut(), exe.as_mut_ptr(), exe.len() as u32);
-    }
 
-    let verb = wstr!("runas");
-
-    let mut params = [0u16; 520];
-    let params_ptr = match arg {
-        Some(a) => {
-            let a = trim_nul(a);
-            let mut i = 0usize;
-            params[i] = b'"' as u16;
-            i += 1;
-            for &c in a {
-                if i + 2 >= params.len() {
-                    break;
-                }
-                params[i] = c;
-                i += 1;
-            }
-            params[i] = b'"' as u16;
-            i += 1;
-            params[i] = 0;
+        let verb = wstr!("runas");
+        let params_ptr = if params.is_empty() {
+            null()
+        } else {
             params.as_ptr()
-        }
-        None => null(),
-    };
+        };
 
-    unsafe {
         ShellExecuteW(
             null_mut(),
             verb.as_ptr(),
@@ -226,19 +206,33 @@ fn find_winlogon() -> Option<u32> {
     }
 }
 
-fn first_arg(dst: &mut [u16]) -> bool {
+fn cmd_tail() -> &'static [u16] {
+    const SPACE: u16 = b' ' as u16;
+    const QUOTE: u16 = b'"' as u16;
     unsafe {
-        let mut argc = 0i32;
-        let argv = CommandLineToArgvW(GetCommandLineW(), &mut argc);
-        if argv.is_null() || argc < 2 {
-            return false;
+        let p = GetCommandLineW();
+        let mut i = 0isize;
+        let mut quoted = false;
+        loop {
+            let c = *p.offset(i);
+            if c == 0 {
+                return &[];
+            }
+            if c == QUOTE {
+                quoted = !quoted;
+            } else if c == SPACE && !quoted {
+                break;
+            }
+            i += 1;
         }
-        let arg = *argv.add(1);
-        let mut n = 0usize;
-        while *arg.add(n) != 0 {
+        while *p.offset(i) == SPACE {
+            i += 1;
+        }
+        let start = p.offset(i);
+        let mut n = 0isize;
+        while *start.offset(n) != 0 {
             n += 1;
         }
-        copy_wide(dst, core::slice::from_raw_parts(arg, n));
-        true
+        core::slice::from_raw_parts(start, n as usize)
     }
 }
