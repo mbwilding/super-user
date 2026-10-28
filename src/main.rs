@@ -57,7 +57,6 @@ fn is_elevated() -> bool {
             size_of::<TOKEN_ELEVATION>() as u32,
             &mut len,
         ) != 0;
-        // CloseHandle(token) omitted — freed on ExitProcess (see `run`).
 
         ok && elevation.TokenIsElevated != 0
     }
@@ -160,17 +159,6 @@ fn run(cmd: &mut [u16]) {
             &si,
             &mut pi,
         );
-
-        // No cleanup on purpose. We call ExitProcess immediately after returning,
-        // and Windows frees every open handle and the environment block on process
-        // exit. Omitting CloseHandle/DestroyEnvironmentBlock drops two imports,
-        // keeping .idata under 1 KB and removing a 512-byte PE block (5,120 -> 4,608).
-        // DestroyEnvironmentBlock(env);
-        // CloseHandle(pi.hProcess);
-        // CloseHandle(pi.hThread);
-        // CloseHandle(hdup);
-        // CloseHandle(htoken);
-        // CloseHandle(hproc);
     }
 }
 
@@ -210,7 +198,6 @@ fn enable_privilege() {
                 null_mut(),
             );
         }
-        // CloseHandle(token) omitted — freed on ExitProcess (see `run`).
     }
 }
 
@@ -241,7 +228,6 @@ fn find_winlogon() -> Option<u32> {
             }
         }
 
-        // CloseHandle(snapshot) omitted — freed on ExitProcess (see `run`).
         found
     }
 }

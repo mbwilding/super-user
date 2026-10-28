@@ -88,10 +88,6 @@ pub struct PROCESSENTRY32W {
 #[link(name = "kernel32", kind = "raw-dylib")]
 unsafe extern "system" {
     pub fn GetCurrentProcess() -> HANDLE;
-    // CloseHandle is intentionally not imported — see the note in main.rs `run`.
-    // Leaving it out drops a function from the import table, which keeps .idata
-    // under 1 KB and removes a 512-byte PE block.
-    // pub fn CloseHandle(handle: HANDLE) -> i32;
     pub fn OpenProcess(access: u32, inherit: i32, pid: u32) -> HANDLE;
     pub fn ExitProcess(code: u32) -> !;
     pub fn GetCommandLineW() -> *const u16;
@@ -150,8 +146,6 @@ unsafe extern "system" {
         token: HANDLE,
         inherit: i32,
     ) -> i32;
-    // DestroyEnvironmentBlock is intentionally not imported — freed on ExitProcess.
-    // pub fn DestroyEnvironmentBlock(environment: *const c_void) -> i32;
 }
 
 #[link(name = "shell32", kind = "raw-dylib")]
