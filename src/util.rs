@@ -1,13 +1,18 @@
-pub fn copy_str(dst: &mut [u16], s: &str) {
-    let mut i = 0;
-    for u in s.encode_utf16() {
-        if i + 1 >= dst.len() {
-            break;
-        }
-        dst[i] = u;
-        i += 1;
-    }
-    dst[i] = 0;
+#[macro_export]
+macro_rules! wstr {
+    ($s:literal) => {{
+        const B: &[u8] = $s.as_bytes();
+        const A: [u16; B.len() + 1] = {
+            let mut a = [0u16; B.len() + 1];
+            let mut i = 0;
+            while i < B.len() {
+                a[i] = B[i] as u16;
+                i += 1;
+            }
+            a
+        };
+        A
+    }};
 }
 
 pub fn copy_wide(dst: &mut [u16], src: &[u16]) {
@@ -22,4 +27,12 @@ pub fn trim_nul(s: &[u16]) -> &[u16] {
         n += 1;
     }
     &s[..n]
+}
+
+pub fn eq_ignore_case_ascii(wide: &[u16], ascii: &[u8]) -> bool {
+    wide.len() == ascii.len()
+        && wide
+            .iter()
+            .zip(ascii)
+            .all(|(&w, &a)| w < 0x80 && (w as u8).eq_ignore_ascii_case(&a))
 }

@@ -10,7 +10,7 @@ use core::mem::zeroed;
 use core::ptr::{null, null_mut};
 
 use ffi::*;
-use util::{copy_str, copy_wide, trim_nul};
+use util::{copy_wide, eq_ignore_case_ascii, trim_nul};
 
 #[unsafe(no_mangle)]
 static _fltused: i32 = 0;
@@ -31,11 +31,8 @@ pub extern "C" fn mainCRTStartup() -> ! {
     }
 
     let mut cmd = [0u16; 512];
-    if has_arg {
-        copy_wide(&mut cmd, trim_nul(&arg));
-    } else {
-        copy_str(&mut cmd, "cmd.exe /k whoami");
-    }
+    let default = wstr!("cmd.exe /k whoami");
+    copy_wide(&mut cmd, if has_arg { trim_nul(&arg) } else { &default });
 
     run(&mut cmd);
     unsafe { ExitProcess(0) }
@@ -68,8 +65,7 @@ fn elevate(arg: Option<&[u16]>) {
         GetModuleFileNameW(null_mut(), exe.as_mut_ptr(), exe.len() as u32);
     }
 
-    let mut verb = [0u16; 8];
-    copy_str(&mut verb, "runas");
+    let verb = wstr!("runas");
 
     let mut params = [0u16; 520];
     let params_ptr = match arg {
@@ -139,8 +135,7 @@ fn run(cmd: &mut [u16]) {
         let mut env: *mut c_void = null_mut();
         CreateEnvironmentBlock(&mut env, htoken, 0);
 
-        let mut desktop = [0u16; 24];
-        copy_str(&mut desktop, "winsta0\\default");
+        let mut desktop = wstr!("winsta0\\default");
 
         let mut si: STARTUPINFOW = zeroed();
         si.cb = size_of::<STARTUPINFOW>() as u32;
@@ -174,8 +169,7 @@ fn enable_privilege() {
             return;
         }
 
-        let mut name = [0u16; 32];
-        copy_str(&mut name, "SeDebugPrivilege");
+        let name = wstr!("SeDebugPrivilege");
 
         let mut luid = LUID {
             LowPart: 0,
@@ -215,7 +209,7 @@ fn find_winlogon() -> Option<u32> {
         let mut found = None;
         if Process32FirstW(snapshot, &mut entry) != 0 {
             loop {
-                if is_winlogon(&entry) {
+                if eq_ignore_case_ascii(trim_nul(&entry.szExeFile), b"winlogon.exe") {
                     let mut sid = 0u32;
                     if ProcessIdToSessionId(entry.th32ProcessID, &mut sid) != 0 && sid == session {
                         found = Some(entry.th32ProcessID);
@@ -230,21 +224,6 @@ fn find_winlogon() -> Option<u32> {
 
         found
     }
-}
-
-fn is_winlogon(entry: &PROCESSENTRY32W) -> bool {
-    const NAME: &[u8] = b"winlogon.exe";
-    let name = trim_nul(&entry.szExeFile);
-    if name.len() != NAME.len() {
-        return false;
-    }
-    for i in 0..name.len() {
-        let c = name[i];
-        if c > 0x7f || (c as u8).to_ascii_lowercase() != NAME[i] {
-            return false;
-        }
-    }
-    true
 }
 
 fn first_arg(dst: &mut [u16]) -> bool {
