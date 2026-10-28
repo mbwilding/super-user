@@ -18,6 +18,6 @@ jobs:
       - run: (Get-Content Cargo.toml) -replace '^version = ".*"', 'version = "${{ env.VERSION }}"' | Set-Content Cargo.toml
       - run: cargo build --release
       - run: Compress-Archive target/x86_64-pc-windows-msvc/release/SuperUser.exe SuperUser.zip
-      - run: gh release create v${{ env.VERSION }} SuperUser.zip target/x86_64-pc-windows-msvc/release/SuperUser.exe --title ${{ env.VERSION }} --generate-notes
+      - run: gh release create ${{ env.VERSION }} SuperUser.zip target/x86_64-pc-windows-msvc/release/SuperUser.exe --title ${{ env.VERSION }} --generate-notes
         env:
           GH_TOKEN: ${{ github.token }}
